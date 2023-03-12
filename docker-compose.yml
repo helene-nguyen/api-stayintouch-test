@@ -15,7 +15,7 @@ services:
     container_name: postgres-api-stayintouch
     image: 'postgres'
     ports:
-      - "5434:${PGPORT}"
+      - "5435:${PGPORT}"
     environment:
       - POSTGRES_USER=${PGUSER}
       - POSTGRES_PASSWORD=${PGPASSWORD}

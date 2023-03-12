@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import jwt from 'jsonwebtoken';
 import { ErrorApi } from '../../app/services/errorHandler.js';
