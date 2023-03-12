@@ -8,8 +8,10 @@ COPY . /home/server/stayintouch
 RUN npm i -g nodemon
 
 RUN npm i
+
+RUN tsc
+
 # default tcp port
 EXPOSE 4300
 
-# For development environment
-RUN npm run dev
+ENTRYPOINT ["node", "dist/index.js"]

@@ -11,6 +11,7 @@ function auth(req: Request, res: Response, next: NextFunction): void {
 
 function admin(req: Request, res: Response, next: NextFunction) {
   if (req.user?.role !== 'admin') throw new ErrorApi(req, res, 403, `You cannot access this info, you're not admin, go away !`);
+
   next();
 }
 
