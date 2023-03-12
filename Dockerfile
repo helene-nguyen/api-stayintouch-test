@@ -9,7 +9,7 @@ RUN npm i -g nodemon
 
 RUN npm i
 
-RUN tsc
+RUN npx tsc
 
 # default tcp port
 EXPOSE 4300

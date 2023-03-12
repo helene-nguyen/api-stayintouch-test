@@ -13,7 +13,7 @@ services:
     restart: always
   db-stayintouch:
     container_name: postgres-api-stayintouch
-    image: 'postgres'
+    image: 'tobi312/rpi-postgresql-postgis:15-3.3-alpine-arm'
     ports:
       - "5435:${PGPORT}"
     environment:
