@@ -1,0 +1,5 @@
+__docs
+.git
+*.md
+**/node_modules/
+**/dist
