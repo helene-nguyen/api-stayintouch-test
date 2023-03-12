@@ -1,0 +1,26 @@
+version: '1'
+services:
+  express:
+    container_name: "api-stayintouch-compose"
+    build: .
+    ports:
+      - '4300:4300'
+    volumes:
+      - .:/home/server/api-stayintouch
+    image: 'api-stayintouch'
+    depends_on:
+      - db-stayintouch
+    restart: always
+  db-stayintouch:
+    container_name: postgres-api-stayintouch
+    image: 'postgres'
+    ports:
+      - "5434:${PGPORT}"
+    environment:
+      - POSTGRES_USER=${PGUSER}
+      - POSTGRES_PASSWORD=${PGPASSWORD}
+      - POSTGRES_DB=${PGDATABASE}
+    volumes:
+      - db-data:/var/lib/postgresql/data # persist data even if container shuts down
+volumes:
+  db-data: # names volumes can be managed easier using docker-compose

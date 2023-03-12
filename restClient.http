@@ -1,0 +1,33 @@
+@entryPoint = http://localhost:4300/api/v1
+
+@accessToken = Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyRXhpc3QiOnsiaWQiOjEsImZpcnN0X25hbWUiOiJ1c2VybmFtZSAxIiwibGFzdF9uYW1lIjoidXNlcmxhc3RuYW1lIDEiLCJyb2xlIjoiYWRtaW4ifSwiaWF0IjoxNjc4NjM1MTY1LCJleHAiOjE2Nzg3MjE1NjV9.fVQ-0fiasPEJAAJ4CE3t_bRJBaF7MSJRdPsTfzVDD6U
+
+
+@refreshToken = Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyRXhpc3QiOnsiaWQiOjEsImZpcnN0X25hbWUiOiJ1c2VybmFtZSAxIiwibGFzdF9uYW1lIjoidXNlcmxhc3RuYW1lIDEiLCJyb2xlIjoiYWRtaW4ifSwiaWF0IjoxNjc4NjM1MTY1LCJleHAiOjE2Nzg4MDc5NjV9.b_jU4x_P1K4fYf1kI7FkQJCoSHrmjJiLwRX4wocMNAE
+
+###
+POST {{entryPoint}}/signin
+Content-Type: application/json
+
+{
+  "first_name": "username 1"
+}
+
+###
+GET {{entryPoint}}/users
+Content-Type: application/json
+{{accessToken}}
+
+{
+  "limit": 5,
+  "start" : 3
+}
+
+###
+GET {{entryPoint}}/users/1/nearbyusers
+Content-Type: application/json
+{{accessToken}}
+
+{
+  "radius": 1
+}

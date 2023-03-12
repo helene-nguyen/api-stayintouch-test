@@ -1,0 +1,47 @@
+{
+  "type": "module",
+  "name": "api-stayintouch",
+  "version": "1.0.0",
+  "description": "Find near by users",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev:build_🏡": "tsc -w",
+    "dev:run_🚀": "nodemon dist/index.js",
+    "dev:lint_💥": "eslint . --ext .ts",
+    "dev": "concurrently \"npm:dev:*\" -c green.bold,yellow.bold,blue.bold",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watchAll"
+  },
+  "keywords": [
+    "api",
+    "stayintouch"
+  ],
+  "author": "yumicode",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "graphql-request": "^5.2.0",
+    "helmet": "^6.0.1",
+    "jsonwebtoken": "^9.0.0",
+    "pg": "^8.10.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.0",
+    "@types/debug": "^4.1.7",
+    "@types/express": "^4.17.17",
+    "@types/express-session": "^1.17.6",
+    "@types/jsonwebtoken": "^9.0.1",
+    "@types/node": "^18.15.0",
+    "@types/pg": "^8.6.6",
+    "@typescript-eslint/eslint-plugin": "^5.54.1",
+    "@typescript-eslint/parser": "^5.54.1",
+    "concurrently": "^7.6.0",
+    "debug": "^4.3.4",
+    "eslint": "^8.36.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.5"
+  }
+}

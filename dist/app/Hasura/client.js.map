@@ -1,0 +1,1 @@
+{"version":3,"file":"client.js","sourceRoot":"","sources":["../../../src/app/Hasura/client.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,aAAa,EAAE,MAAM,iBAAiB,CAAC;AAEhD,MAAM,CAAC,MAAM,MAAM,GAAG,IAAI,aAAa,CAAC,sCAAsC,EAAE;IAC9E,OAAO,EAAE,EAAE,uBAAuB,EAAE,OAAO,CAAC,GAAG,CAAC,2BAA4B,EAAE;CAC/E,CAAC,CAAC"}
