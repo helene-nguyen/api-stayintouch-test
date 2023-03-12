@@ -12,4 +12,4 @@ RUN npm i
 EXPOSE 4300
 
 # For development environment
-ENTRYPOINT ["nodemon", "index.js"]
+RUN npm run dev
