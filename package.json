@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "dev:build": "tsc -w",
+    "dev:build": "npx tsc -w",
     "dev:run": "nodemon dist/index.js",
     "dev:lint": "eslint . --ext .ts",
     "dev": "concurrently \"npm:dev:*\" -c green.bold,yellow.bold,blue.bold",
