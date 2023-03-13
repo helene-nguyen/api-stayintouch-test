@@ -952,6 +952,11 @@ I used DuckDNS to have a free domain name
 
 ## Firewall rules
 
+For my case, I need to open the port and add a rule with ufw (Uncomplicated Firewall (UFW) is a command-line firewall abstraction layer ):
+
+ 
+![allow with ufw](./__docs/media/allow.png)
+
 [Link to summary](#summary)
 
 ## API online
@@ -1035,5 +1040,6 @@ Each step takes me further.
   - [Json Web Tokens](https://jwt.io/)
   - [Nginx Proxy Manager](https://nginxproxymanager.com/)
   - [What is reverse proxy ?](https://www.cloudflare.com/learning/cdn/glossary/reverse-proxy/)
+  - [UFW](https://www.baeldung.com/linux/uncomplicated-firewall#:~:text=The%20Uncomplicated%20Firewall%20(UFW)%20is,with%20an%20optimal%20default%20configuration.)
 
 [Link to summary](#summary)
