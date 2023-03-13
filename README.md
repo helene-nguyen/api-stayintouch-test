@@ -39,7 +39,7 @@ Hope it helps !
 - [Server launched](#server-launched)
 - [Connect database PostgreSQL](#connect-database-postgresql)
 - [Handle errors](#handle-errors)
-- [Favorite part SQL](#favorite-part-sql)
+- [Favorite part SQL](#favourite-part-sql)
 - [Authentication JWT](#authentication-jwt)
 - [API works](#api-works)
 - [Cloud RaspberryPi](#cloud-raspberrypi)
@@ -99,6 +99,7 @@ _Tools_
 - pgAdmin4 v6.20
 - Insomnia v2022.7.5
 - Postman v10.11.1
+- restClient VSCode extension
 
 _CLI terminal_
 
@@ -506,7 +507,7 @@ Result :
 
 [Link to summary](#summary)
 
-## Favorite part SQL
+## Favourite part SQL
 
 My favourite part : working with SQL and PostgreSQL !
 I have so many things to explore, but I want to share this work with you.
@@ -572,7 +573,7 @@ My use of PostGis :
 
 - If you want to use the database, I've created a migration file with all the necessary queries. To use the file :
 
-     - on Windows
+on Windows
 
 ```sh
 psql -U postgres -p PORT -h HOST -f ~/PATH/TO/Stayintouch/data/01_migration.sql
@@ -580,33 +581,372 @@ psql -U postgres -p PORT -h HOST -f ~/PATH/TO/Stayintouch/data/01_migration.sql
 
 ![win migration](./__docs/media/win-migration.gif)
 
+on Linux
+
+```sh
+sudo -iu postgres psql -U stayintouch -h 172.24.0.2 -f ~/PATH/TO/api-stayintouch-test/data/01_migration.sql
+```
+
+![win migration](./__docs/media/linux-migration.gif)
+
+Use the fonction from PostGis :
+
+```sql
+SELECT
+first_name,
+last_name,
+json_build_object('lng',lng,'lat',lat) as location
+FROM "user_tracking"
+JOIN "user"
+ON "user_tracking".user_id = "user".id
+WHERE
+  ST_DWithin(('POINT(7.352464 48.075381)')::geography,
+              ST_MakePoint(lng,lat), 3.5 * 1000)
+			  -- * 1000 meters to convert in km
+AND "user_id" != 1
+GROUP BY first_name, last_name, lng, lat;
+```
+
+Test with pgAdmin4:
+
+![ST_DWithin](./__docs/media/st_query.gif)
+
+And create the functions :
+
+```sql
+CREATE OR REPLACE FUNCTION find_users_by_radius(userId INT, radius NUMERIC)
+RETURNS SETOF nearby_users AS $$
+
+DECLARE
+_lng DOUBLE PRECISION := (SELECT lng FROM "user_tracking" AS UT
+						  WHERE UT."user_id" = userId);
+_lat DOUBLE PRECISION := (SELECT lat FROM "user_tracking" AS UT
+						  WHERE UT."user_id" = userId);
+
+BEGIN
+RETURN QUERY (
+	SELECT
+first_name,
+last_name,
+json_build_object('lng',lng,'lat',lat) as location
+FROM "user_tracking"
+JOIN "user"
+ON "user_tracking".user_id = "user".id
+WHERE
+  ST_DWithin(('POINT('|| _lng || ' ' || _lat ||')')::geography,
+              ST_MakePoint(lng,lat),radius
+			 * 1000)
+AND "user_id" != userId
+GROUP BY first_name, last_name, lng, lat
+);
+END;
+$$ LANGUAGE plpgsql VOLATILE;
+```
+
+Result :
+
+![create funciton  radius](./__docs/media/function_radius.gif)
+
+I've also created other functions to make querying in Datamapper easier :)
+
+If you want to take a look, it's [here](./data/03_functions.sql).
+
+And create the function in datamapper :
+
+```js
+async findAllNearbyUsers(userId: number, radius: number) {
+    if (this.client instanceof pg.Pool) {
+      const preparedQuery = {
+        text: `
+                SELECT *
+                FROM "${this.nearbyUsersFunction}"($1,$2);`,
+        values: [userId, radius],
+      };
+
+      const result = await this.client.query(preparedQuery);
+      return result.rows;
+    }
+  }
+```
+
+Result:
+
+![find nearby users](./__docs/media/test_api_radius.gif)
+
 [Link to summary](#summary)
 
 ## Authentication JWT
+
+Authentication is handled by Json Web Tokens authentication, which is a standard RFC 7519 method for securely representing claims between two parties.
+
+For this simple API, here are an example of generating access and refresh tokens :
+
+```js
+//~  Jwt Access_Token
+function generateAccessToken(user:object) {
+    return jwt.sign(user, process.env.ACCESS_TOKEN_SECRET!, { expiresIn: '1d' }); // 1d => one day, 60m => 60 minutes
+}
+
+function generateRefreshToken(user:object, req:Request) {
+    //* -- register refresh tokens
+    req.session.refreshToken = [];
+    const token = req.session.refreshToken;
+
+    const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET!, { expiresIn: '2d' }); // 1d => one day, 60m => 60 minutes
+
+    token.push(refreshToken);
+
+    return refreshToken;
+}
+```
+
+And how to use it in the controller :
+
+```js
+const doSignIn = async (req: Request, res: Response) => {
+  try {
+    const { first_name } = req.body;
+
+    const userExist = await User.findOne(first_name);
+    if (!userExist) throw new ErrorApi(req, res, 401, `Informations not valid !`);
+
+    //~ Authorization JWT
+    const accessToken = generateAccessToken({ userExist });
+    const refreshToken = generateRefreshToken({ userExist }, req);
+    const userIdentity = { ...userExist, accessToken, refreshToken };
+
+    //~ Result
+    return res.status(200).json(userIdentity);
+  } catch (err) {
+    if (err instanceof Error) logger(err.message);
+  }
+};
+```
+
+Then you can create a function to validate you token :
+
+```js
+function validateToken(req: Request, res: Response, next: NextFunction) {
+  try {
+    //   get token from header
+    const authHeader = req.headers['authorization'];
+
+    if (authHeader === undefined) throw new ErrorApi(req, res, 400, 'No token found !');
+
+    //header contains token "Bearer <token>", split the string and get the 2nd part of the array
+    const accessToken = authHeader.split(' ')[1];
+
+    jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET!, (err: unknown, user: any) => {
+      if (err) {
+        throw new ErrorApi(req, res, 403, 'The token is invalid!');
+      }
+      req.user = user.userExist;
+
+      req.session.token = accessToken;
+
+      next();
+    });
+  } catch (err) {
+    if (err instanceof Error) logger(err.message);
+  }
+}
+```
+
+And add it as a middleware on your route :
+
+```js
+router.get('/api/v1/users/:userId(\\d+)/nearbyusers', [validateToken, auth, admin], fetchNearbyUsers);
+```
+
+And if you want to test if it works, I've tested on Insomnia, restClient extension and Postman but here's an example with restClient :
+
+```http
+@entryPoint = http://localhost:4300/api/v1
+
+@accessToken = Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyRXhpc3QiOnsiaWQiOjEsImZpcnN0X25hbWUiOiJ1c2VybmFtZSAxIiwibGFzdF9uYW1lIjoidXNlcmxhc3RuYW1lIDEiLCJyb2xlIjoiYWRtaW4ifSwiaWF0IjoxNjc4NjkxOTc4LCJleHAiOjE2Nzg3NzgzNzh9.xZQ09J2YueEa_p6lGtEJUk1FOa_cIg9qQwa6fKQ4s6U
+
+GET {{entryPoint}}/users/1/nearbyusers
+Content-Type: application/json
+{{accessToken}}
+
+{
+  "radius": 1
+}
+```
+
+You need to provide the Bearer token to make it work and the token must be valid.
 
 [Link to summary](#summary)
 
 ## API works
 
+Demo with Insomnia :
+
+![Demo Insomnia](./__docs/media/test_insomnia.gif)
+
 [Link to summary](#summary)
 
 ## Cloud RaspberryPi
+
+To deploy, I use my RaspberryPi, which I've configured as a server.
+
+If you have a VPS configured with Linux OS, you can follow the same steps as me.
+
+Connect to your remote server using ssh :
+
+```sh
+ssh username@IPaddress
+```
+
+Make sure you have given Github your ssh key and clone the repository.
+
+Go to the folder :
+
+```sh
+cd api-stayintouch-test
+```
+
+And configure the .env file to make it works :
+
+```
+#MY_PORT=VALUE
+PORT=4300
+
+#INFO CONNEXION DB FOR PSQL Docker
+PGHOST='db-stayintouch'
+PGDATABASE='stayintouch'
+PGUSER='stayintouch'
+PGPASSWORD='stayintouch'
+PGPORT=5432
+
+
+#SESSION
+SESSION_SECRET=
+
+#JWT
+#Generate random token :
+#launch node and copy
+#require("crypto").randomBytes(64).toString("hex")
+ACCESS_TOKEN_SECRET=
+
+REFRESH_TOKEN_SECRET=
+
+# DEBUG
+DEBUG=Entrypoint,Pool,ErrorHandling,Controller,Jwt
+```
+
+PGHOST value is the name given in docker-compose.yml file
+
+```yml
+version: '1'
+services:
+  express:
+    container_name: 'api-stayintouch-compose'
+    build: .
+    ports:
+      - '4300:4300'
+    volumes:
+      - .:/home/server/api-stayintouch
+    image: 'api-stayintouch'
+    depends_on:
+      - db-stayintouch # HERE THE NAME OF HOST CONTAINER OF DB
+    restart: always
+  db-stayintouch:
+    container_name: postgres-api-stayintouch
+    image: 'tobi312/rpi-postgresql-postgis:15-3.3-alpine-arm'
+    ports:
+      - '5435:${PGPORT}'
+    environment:
+      - POSTGRES_USER=${PGUSER}
+      - POSTGRES_PASSWORD=${PGPASSWORD}
+      - POSTGRES_DB=${PGDATABASE}
+    volumes:
+      - db-data:/var/lib/postgresql/data # persist data even if container shuts down
+volumes:
+  db-data: # names volumes can be managed easier using docker-compose
+```
 
 [Link to summary](#summary)
 
 ## Docker and docker compose
 
+I've written a Makefile to build and run my containers but you can do without it :
+
+- Build the image :
+
+```sh
+sudo docker build --network=host -t api-stayintouch .
+```
+
+=> Build the image from given Dockerfile and give it a name : api-stayintouch
+
+![docker image](./__docs/media/docker-image.png)
+
+- use docker compose to run both containers (database and api)
+
+```sh
+sudo docker compose up
+
+# OR DETACHED MODE
+sudo docker compose up -d
+```
+
+If you want to connect to your database Docker container, you can get the IP address of your container by running :
+
+```sh
+sudo docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' postgres-api-stayintouch
+```
+
+- Connect to your database from the host Linux
+
+```sh
+sudo -iu postgres psql -U stayintouch -h 172.24.0.2
+```
+
+![linux docker db](./__docs/media/linux-docker-db.png)
+
+Or with docker command using the interactive terminal flag :
+
+```sh
+sudo docker exec -it postgres-api-stayintouch psql -U stayintouch
+```
+
+![docker command](./__docs/media/docker-it.png)
+
 [Link to summary](#summary)
 
 ## Migration database in Docker
+
+And then you can migrate your database as showed in these steps [here](#favourite-part-sql)
 
 [Link to summary](#summary)
 
 ## Portainer and Nginx Proxy Manager
 
+You can manage your containers with command line (demo, you can skip):
+
+![docker cli](./__docs/media/manage-cli.gif)
+
+Or manage it with Portainer which is a powerful container management, I love the graphical interface :
+
+![docker portainer](./__docs/media/portainer.gif)
+
+I use Nginx Proxy Manager to expose my services easily and securely using Nginx to reverse Proxy.
+A reverse proxy is a server that sits in front of web servers and forwards client (web browser) requests to those web servers.
+
+Reverse proxies are implemented to help increase security, performance, and reliability.
+
+Need a super drawing ? Let's go !
+
+![reverse proxy](./__docs/media/rever-proxy.png)
+
 [Link to summary](#summary)
 
 ## Domain name
+
+I used DuckDNS to have a free domain name
+
+![domain name](./__docs/media/domain-name.png)
 
 [Link to summary](#summary)
 
@@ -618,25 +958,82 @@ psql -U postgres -p PORT -h HOST -f ~/PATH/TO/Stayintouch/data/01_migration.sql
 
 [Link to the API online !](http://test-stayintouch.duckdns.org/)
 
+And I can link it and configure it with my Nginx Proxy Manager :
+
+![edit npm](./__docs/media/edit-proxy.png)
+
+And ... the link is here !! => http://test-stayintouch.duckdns.org/
+
 [Link to summary](#summary)
 
 ## Makefile usage
 
+If you want to use Makefile :
+
+- Build the image
+
+```sh
+make docker-build
+```
+
+- Use docker-compose file to run the container
+
+```sh
+make docker-compose
+```
+
+- Use docker compose in detached mode
+
+```sh
+make docker-compose-detached
+```
+
+- Get the ip address of the container where the api is running
+
+```sh
+make get-ip-docker-api
+```
+
+- Get the ip address of the container where the database is running
+
+```sh
+make get-ip-docker-db
+```
+
+- Stop the containers
+
+```sh
+make clean
+```
+
 [Link to summary](#summary)
 
 ## Conclusion
+
+I enjoyed doing this API, I've never used PostGis before and wanted to share the complete steps to build a backend API from scratch to deployment.
+
+Hope it can help, thank you for reading :)
+
+Each step takes me further.
 
 ## [Link to summary](#summary)
 
 ## Sources
 
 - Downloads
+
   - [NodeJS](https://nodejs.org/en/download/?utm_source=blog)
   - [Get Docker](https://docs.docker.com/get-docker/)
   - [Docker compose v2](https://docs.docker.com/compose/compose-v2/)
+
+- Documentation
+
   - [PostGis image](https://registry.hub.docker.com/r/postgis/postgis/)
   - [PostGis image for RaspberryPi](https://hub.docker.com/r/tobi312/rpi-postgresql-postgis/)
   - [PostGis documentation](https://postgis.net/)
-  - []()
+  - [PostGis ST_DWithin](https://postgis.net/docs/manual-3.3/ST_DWithin.html)
+  - [Json Web Tokens](https://jwt.io/)
+  - [Nginx Proxy Manager](https://nginxproxymanager.com/)
+  - [What is reverse proxy ?](https://www.cloudflare.com/learning/cdn/glossary/reverse-proxy/)
 
 [Link to summary](#summary)
